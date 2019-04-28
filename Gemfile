@@ -2,6 +2,6 @@
 
 source "https://rubygems.org"
 
-gem 'mastodon-api', git: 'https://github.com/tootsuite/mastodon-api.git', ref: '4e75bec'
+git: 'https://github.com/h3zjp/mastodon-api.git', :branch => 'h3zjp'
 gem 'ikku', '>= 0.1.4'
 gem 'sanitize', '~> 5.0'
