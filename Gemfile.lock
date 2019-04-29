@@ -1,7 +1,7 @@
 GIT
-  remote: https://github.com/h3zjp/mastodon-api.git
-  revision: de6088c1d68b55c482fe814be2b825ecd3320a3d
-  branch: h3zjp
+  remote: https://github.com/theoria24/mastodon-api.git
+  revision: 0dbf540ceb1655ebe7a4c13699e8e5f8e063e142
+  branch: dev
   specs:
     mastodon-api (2.0.0)
       addressable (~> 2.6)
