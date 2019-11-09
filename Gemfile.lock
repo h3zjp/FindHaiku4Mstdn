@@ -1,5 +1,5 @@
 GIT
-  remote: https://github.com/theoria24/mastodon-api.git
+  remote: https://github.com/h3zjp/mastodon-api.git
   revision: 0dbf540ceb1655ebe7a4c13699e8e5f8e063e142
   branch: dev
   specs:
