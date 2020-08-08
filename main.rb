@@ -1,22 +1,23 @@
 require 'bundler/setup'
-require 'yaml'
 require 'mastodon'
 require 'ikku'
 require 'sanitize'
+require "./reporter.rb"
 
-config = YAML.load_file("./key.yml")
 debug = true
 unfollow_str = "俳句検出を停止してください"
 
+p(ENV["BASE_URL"], ENV["WS_URL"]) if debug
+
 stream = Mastodon::Streaming::Client.new(
-  base_url: "https://" + config["base_url"],
-  bearer_token: config["access_token"])
+  base_url: ENV["WS_URL"] || ENV["BASE_URL"],
+  bearer_token: ENV["ACCESS_TOKEN"])
 
 rest = Mastodon::REST::Client.new(
-  base_url: "https://" + config["base_url"],
-  bearer_token: config["access_token"])
+  base_url: ENV["BASE_URL"],
+  bearer_token: ENV["ACCESS_TOKEN"])
 
-reviewer = Ikku::Reviewer.new
+reporter = Reporter.new
 
 reviewer_id = rest.verify_credentials().id
 
@@ -39,19 +40,39 @@ begin
           end
         end
       end
+      if toot.account.id == reviewer_id then
+        p "skip own post" if debug
+        next
+      end
       if !unfollow_request && (toot.visibility == "public" || toot.visibility == "unlisted") then
         if toot.in_reply_to_id.nil? && toot.attributes["reblog"].nil? then
           p "@#{toot.account.acct}: #{content}" if debug
-          haiku = reviewer.find(content)
-          if haiku then
+          songs, reports = reporter.report(content)
+          if songs.length > 0 then
+            haiku = songs.first
             postcontent = "『#{haiku.phrases[0].join("")} #{haiku.phrases[1].join("")} #{haiku.phrases[2].join("")}』"
             p "俳句検知: #{postcontent}" if debug
-            if toot.attributes["spoiler_text"].empty? then
-              rest.create_status("@#{toot.account.acct} 俳句を発見しました！\n" + postcontent, in_reply_to_id: toot.id)
-            else
-              rest.create_status("@#{toot.account.acct}\n" + postcontent, in_reply_to_id: toot.id, spoiler_text: "俳句を発見しました！")
+            p "tags: #{toot.attributes["tags"]}" if debug
+            if toot.attributes["tags"].map{|t| t["name"]}.include?("frfr") then
+              postcontent += ' #frfr'
             end
+            posted = nil
+            if toot.attributes["spoiler_text"].empty? then
+              posted = rest.create_status("@#{toot.account.acct} 俳句を発見しました！\n" + postcontent, in_reply_to_id: toot.id)
+            else
+              posted = rest.create_status("@#{toot.account.acct}\n" + postcontent, in_reply_to_id: toot.id, spoiler_text: "俳句を発見しました！")
+            end
+            rest.create_status(
+              reports,
+              visibility: :unlisted,
+              in_reply_to_id: posted.id,
+            )
             p "post!" if debug
+          elsif toot.mentions.any? {|m| m.id == reviewer_id}
+            rest.create_status(
+              "@#{toot.account.acct}\n" + reports,
+              in_reply_to_id: toot.id,
+            )
           elsif debug
             p "俳句なし"
           end
@@ -67,7 +88,7 @@ begin
     end
   end
 rescue => e
-  p "error"
-  puts e
+  p "error", e
+  puts e.backtrace
   retry
 end
